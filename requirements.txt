@@ -1,0 +1,7 @@
+numpy
+matplotlib
+torch
+pymongo
+dnspython
+torchvision
+python-decouple
