@@ -1,15 +1,16 @@
 import copy
 import logging
 import pickle
-import time
 from datetime import datetime
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pymongo
 import torch
 from decouple import config
 from torch import nn, optim
 from torchvision import transforms, datasets
+from tqdm import tqdm
 
 
 TRAINING_DATASET_PATH = 'dataset/masked/training'
@@ -29,8 +30,8 @@ logging.basicConfig(level=logging.INFO)
 
 def load_dataset():
     transform = transforms.Compose([
-        transforms.Grayscale(),
-        transforms.Resize((70, 70)),
+        # transforms.Grayscale(),
+        transforms.Resize((227, 227)),
         transforms.ToTensor()
     ])
 
@@ -38,8 +39,11 @@ def load_dataset():
     training = datasets.ImageFolder(root=TRAINING_DATASET_PATH, transform=transform)
     validation = datasets.ImageFolder(root=VALIDATION_DATASET_PATH, transform=transform)
 
-    train_loader = torch.utils.data.DataLoader(training, batch_size=64, shuffle=True, num_workers=1)
-    validation_loader = torch.utils.data.DataLoader(validation, batch_size=64, shuffle=True, num_workers=1)
+    training = torch.utils.data.Subset(training, np.random.choice(len(training), 1000, replace=False))
+    validation = torch.utils.data.Subset(validation, np.random.choice(len(validation), 200, replace=False))
+
+    train_loader = torch.utils.data.DataLoader(training, batch_size=128, shuffle=True, num_workers=1)
+    validation_loader = torch.utils.data.DataLoader(validation, batch_size=128, shuffle=True, num_workers=1)
     logging.info('End dataset loading')
 
     return train_loader, validation_loader
@@ -75,7 +79,8 @@ def train(model, iterator, optimizer, criterion, device):
 
     model.train()
 
-    for (x, y) in iterator:
+    # for (x, y) in iterator:
+    for (x, y) in tqdm(iterator):
         x = x.to(device)
         y = y.to(device).to(torch.float32)
 
@@ -84,6 +89,7 @@ def train(model, iterator, optimizer, criterion, device):
         y_pred = model(x)
         y_pred = torch.squeeze(y_pred)
 
+        y_pred = nn.Sigmoid()(y_pred)
         loss = criterion(y_pred, y)
 
         pred_classes = torch.where(y_pred > 0.5, 1., 0.)
@@ -112,6 +118,7 @@ def evaluate(model, iterator, criterion, device):
             y = y.to(device).to(torch.float32)
 
             y_pred = model(x)
+            y_pred = nn.Sigmoid()(y_pred)
             y_pred = torch.squeeze(y_pred)
 
             loss = criterion(y_pred, y)
@@ -145,7 +152,7 @@ def send_info_to_mongodb(model, train_loss, train_acc, validation_loss, validati
       train_acc=train_acc,
       validation_loss=validation_loss,
       validation_acc=validation_acc,
-      model=model
+      # model=model
     )
     print('sending info to mongodb ...')
     # print(new_entry)
@@ -159,24 +166,19 @@ def execution(model, optimizer, device, criterion, train_dataset, validation_dat
     best_model_state = None
 
     for epoch in range(EPOCHS):
-        start_time = time.monotonic()
-
         train_loss, train_acc = train(model, train_dataset, optimizer, criterion, device)
-        valid_loss, valid_acc = evaluate(model, validation_dataset, criterion, device)
+        print(f'Train Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:.2f}%')
 
-        if valid_loss < best_epoch_valid_loss:
-            print('best valid loss hit')
-            best_epoch_valid_loss = valid_loss
-            best_model_state = copy.deepcopy(model.to('cpu').state_dict())
-            model.to(device)
+    valid_loss, valid_acc = evaluate(model, validation_dataset, criterion, device)
 
-        end_time = time.monotonic()
+    if valid_loss < best_epoch_valid_loss:
+        print('best valid loss hit')
+        best_epoch_valid_loss = valid_loss
+        best_model_state = copy.deepcopy(model.to('cpu').state_dict())
+        model.to(device)
 
-        epoch_mins, epoch_secs = epoch_time(start_time, end_time)
-        print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
-        print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:.2f}%')
-        print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc * 100:.2f}%')
-        print('-' * 30)
+    print(f'Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc * 100:.2f}%')
+    print('-' * 30)
 
     return train_loss, train_acc, valid_loss, valid_acc, best_model_state
 
