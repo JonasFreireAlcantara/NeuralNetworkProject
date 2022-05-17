@@ -39,11 +39,11 @@ def load_dataset():
     training = datasets.ImageFolder(root=TRAINING_DATASET_PATH, transform=transform)
     validation = datasets.ImageFolder(root=VALIDATION_DATASET_PATH, transform=transform)
 
-    training = torch.utils.data.Subset(training, np.random.choice(len(training), 1000, replace=False))
-    validation = torch.utils.data.Subset(validation, np.random.choice(len(validation), 200, replace=False))
+    # training = torch.utils.data.Subset(training, np.random.choice(len(training), 1000, replace=False))
+    # validation = torch.utils.data.Subset(validation, np.random.choice(len(validation), 200, replace=False))
 
-    train_loader = torch.utils.data.DataLoader(training, batch_size=128, shuffle=True, num_workers=1)
-    validation_loader = torch.utils.data.DataLoader(validation, batch_size=128, shuffle=True, num_workers=1)
+    train_loader = torch.utils.data.DataLoader(training, batch_size=256, shuffle=True, num_workers=1)
+    validation_loader = torch.utils.data.DataLoader(validation, batch_size=256, shuffle=True, num_workers=1)
     logging.info('End dataset loading')
 
     return train_loader, validation_loader
