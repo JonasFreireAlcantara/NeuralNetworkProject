@@ -22,7 +22,7 @@ MONGO_DB_PASSWORD = config('MONGO_DB_PASSWORD')
 MONGO_DB_NAME = config('MONGO_DB_NAME')
 
 
-EPOCHS = 30
+EPOCHS = 2
 
 
 logging.basicConfig(level=logging.INFO)
@@ -31,7 +31,7 @@ logging.basicConfig(level=logging.INFO)
 def load_dataset():
     transform = transforms.Compose([
         # transforms.Grayscale(),
-        transforms.Resize((227, 227)),
+        transforms.Resize((299, 299)),
         transforms.ToTensor()
     ])
 
@@ -39,8 +39,8 @@ def load_dataset():
     training = datasets.ImageFolder(root=TRAINING_DATASET_PATH, transform=transform)
     validation = datasets.ImageFolder(root=VALIDATION_DATASET_PATH, transform=transform)
 
-    # training = torch.utils.data.Subset(training, np.random.choice(len(training), 1000, replace=False))
-    # validation = torch.utils.data.Subset(validation, np.random.choice(len(validation), 200, replace=False))
+    training = torch.utils.data.Subset(training, np.random.choice(len(training), 100, replace=False))
+    validation = torch.utils.data.Subset(validation, np.random.choice(len(validation), 10, replace=False))
 
     train_loader = torch.utils.data.DataLoader(training, batch_size=256, shuffle=True, num_workers=1)
     validation_loader = torch.utils.data.DataLoader(validation, batch_size=256, shuffle=True, num_workers=1)
